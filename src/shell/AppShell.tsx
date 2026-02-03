@@ -10,6 +10,7 @@ import { Toaster } from "../components/ui/sonner";
 import { toast } from "sonner";
 import { mockAssociatedSales, mockMarketplaceItems } from "../data/mockData";
 import { paths, PathKey } from "../routes/paths";
+import { UIActionsProvider } from "../context/UIActionsContext";
 
 function getActiveTabFromPath(pathname: string): PathKey {
   if (pathname.startsWith(paths.explore)) return "explore";
@@ -47,67 +48,70 @@ export function AppShell() {
   };
 
   const onTabChange = (tab: string) => {
-    // tab comes from your MobileNav component (strings like "home", "explore"...)
-    // Keep this mapping strict.
     const key = tab as PathKey;
     const next = paths[key] ?? paths.home;
     navigate(next);
   };
 
-  const onViewCart = () => navigate(paths.cart);
+  const actions = useMemo(
+    () => ({
+      openCreatePost: () => setCreatePostOpen(true),
+      openItem: (itemId: string) => setSelectedItemId(itemId),
+      openComments: (postId: string) => setCommentsPostId(postId),
+      openSales: (postId: string) => setSalesPostId(postId),
+      goToCart: () => navigate(paths.cart),
+    }),
+    [navigate],
+  );
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-[500px] mx-auto min-h-screen relative">
-        <MobileHeader
-          onNotificationsClick={() => navigate(paths.notifications)}
-          onMessagesClick={() => navigate(paths.messages)}
-        />
-
-        {/* Page content */}
-        <Outlet />
-
-        {/* Bottom nav */}
-        <MobileNav
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          onNewPost={() => setCreatePostOpen(true)}
-        />
-
-        {/* Create post modal */}
-        <MobileCreatePost
-          open={createPostOpen}
-          onOpenChange={setCreatePostOpen}
-          onPost={handleNewPost}
-        />
-
-        {/* Marketplace item overlay */}
-        {selectedItem && (
-          <MarketplaceItemView
-            item={selectedItem}
-            onClose={() => setSelectedItemId(null)}
+    <UIActionsProvider value={actions}>
+      <div className="min-h-screen bg-white">
+        <div className="max-w-[500px] mx-auto min-h-screen relative">
+          <MobileHeader
+            onNotificationsClick={() => navigate(paths.notifications)}
+            onMessagesClick={() => navigate(paths.messages)}
           />
-        )}
 
-        {/* Comments sheet */}
-        <CommentsSheet
-          open={commentsPostId !== null}
-          onOpenChange={(open) => !open && setCommentsPostId(null)}
-          postId={commentsPostId || ""}
-          onViewItem={(id) => setSelectedItemId(id)}
-        />
+          <Outlet />
 
-        {/* Associated sales sheet */}
-        <AssociatedSalesSheet
-          open={salesPostId !== null}
-          onOpenChange={(open) => !open && setSalesPostId(null)}
-          postId={salesPostId || ""}
-          sales={mockAssociatedSales}
-          onViewItem={(id) => setSelectedItemId(id)}
-        />
+          <MobileNav
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            onNewPost={actions.openCreatePost}
+          />
+
+          <MobileCreatePost
+            open={createPostOpen}
+            onOpenChange={setCreatePostOpen}
+            onPost={handleNewPost}
+          />
+
+          {selectedItem && (
+            <MarketplaceItemView
+              item={selectedItem}
+              onClose={() => setSelectedItemId(null)}
+            />
+          )}
+
+          <CommentsSheet
+            open={commentsPostId !== null}
+            onOpenChange={(open) => !open && setCommentsPostId(null)}
+            postId={commentsPostId || ""}
+            onViewItem={(id) => setSelectedItemId(id)}
+          />
+
+          <AssociatedSalesSheet
+            open={salesPostId !== null}
+            onOpenChange={(open) => !open && setSalesPostId(null)}
+            postId={salesPostId || ""}
+            sales={mockAssociatedSales}
+            onViewItem={(id) => setSelectedItemId(id)}
+          />
+        </div>
+
+        <Toaster />
       </div>
-
-      <Toaster />
-    </div>
+    </UIActionsProvider>
   );
 }

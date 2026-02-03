@@ -1,14 +1,15 @@
 import { MarketplacePage } from "../components/MarketplacePage";
+import { useUIActions } from "../context/UIActionsContext";
 
-type Props = {
-  onViewItem: (itemId: string) => void;
-  onViewCart: () => void;
-};
+export function MarketplaceRoute() {
+  const ui = useUIActions();
 
-export function MarketplaceRoute({ onViewItem, onViewCart }: Props) {
   return (
     <div className="pt-14">
-      <MarketplacePage onViewItem={onViewItem} onViewCart={onViewCart} />
+      <MarketplacePage
+        onViewItem={(id) => ui.openItem(id)}
+        onViewCart={ui.goToCart}
+      />
     </div>
   );
 }

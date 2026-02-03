@@ -1,10 +1,9 @@
 import { ExplorePage } from "../components/ExplorePage";
+import { useUIActions } from "../context/UIActionsContext";
 
-type Props = {
-  onViewItem: (itemId: string) => void;
-};
+export function ExploreRoute() {
+  const ui = useUIActions();
 
-export function ExploreRoute({ onViewItem }: Props) {
   return (
     <div className="pt-14">
       <div className="p-4 border-b border-border">
@@ -14,7 +13,7 @@ export function ExploreRoute({ onViewItem }: Props) {
           className="w-full bg-muted rounded-lg px-4 py-2 text-sm outline-none"
         />
       </div>
-      <ExplorePage onViewItem={onViewItem} />
+      <ExplorePage onViewItem={(id) => ui.openItem(id)} />
     </div>
   );
 }

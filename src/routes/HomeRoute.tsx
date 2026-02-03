@@ -3,21 +3,12 @@ import { StoriesBar } from "../components/StoriesBar";
 import { MobilePostCard } from "../components/MobilePostCard";
 import { toast } from "sonner";
 import { Post } from "../types";
-import { adPosts, mockMarketplaceItems, mockPosts } from "../data/mockData";
+import { adPosts, mockPosts } from "../data/mockData";
+import { useUIActions } from "../context/UIActionsContext";
 
-type Props = {
-  onViewItem: (itemId: string) => void;
-  onComment: (postId: string) => void;
-  onShare: (postId: string) => void;
-  onViewSales: (postId: string) => void;
-};
+export function HomeRoute() {
+  const ui = useUIActions();
 
-export function HomeRoute({
-  onViewItem,
-  onComment,
-  onShare,
-  onViewSales,
-}: Props) {
   const allPosts = useMemo(() => {
     return [
       ...mockPosts.slice(0, 2),
@@ -43,19 +34,13 @@ export function HomeRoute({
             key={post.id}
             post={post}
             onLike={handleLike}
-            onComment={onComment}
-            onShare={(id) => {
+            onComment={(postId) => ui.openComments(postId)}
+            onShare={(postId) => {
               toast.success("Shared to story!");
-              onShare(id);
+              console.log("Share post:", postId);
             }}
-            onViewItem={(itemId) => {
-              // Keep current behavior: open marketplace item overlay
-              // (itemId comes from product tags inside posts)
-              const found = mockMarketplaceItems.find((x) => x.id === itemId);
-              if (found) onViewItem(itemId);
-              else console.log("Item not found:", itemId);
-            }}
-            onViewSales={onViewSales}
+            onViewItem={(itemId) => ui.openItem(itemId)}
+            onViewSales={(postId) => ui.openSales(postId)}
           />
         ))}
       </div>
