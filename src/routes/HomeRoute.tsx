@@ -1,25 +1,52 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { StoriesBar } from "../components/StoriesBar";
 import { MobilePostCard } from "../components/MobilePostCard";
 import { toast } from "sonner";
-import { Post } from "../types";
-import { adPosts, mockPosts } from "../data/mockData";
 import { useUIActions } from "../context/UIActionsContext";
+import type { Post } from "../types";
+import { fetchFeed } from "../services/feed";
+
+// Optional fallback (so Home still renders something if DB isn’t seeded yet)
+import {
+  adPosts as mockAdPosts,
+  mockPosts as mockPosts,
+} from "../data/mockData";
 
 export function HomeRoute() {
   const ui = useUIActions();
 
-  const allPosts = useMemo(() => {
-    return [
-      ...mockPosts.slice(0, 2),
-      adPosts[0],
-      ...mockPosts.slice(2, 4),
-      adPosts[1],
-      mockPosts[4],
-    ];
-  }, []);
+  const [posts, setPosts] = useState<Post[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [posts] = useState<Post[]>(allPosts);
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await fetchFeed(30);
+        if (!cancelled) setPosts(data);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Failed to load feed";
+        console.error(e);
+        if (!cancelled) {
+          setError(msg);
+          // fallback to mock so the UI stays alive while we debug
+          const allPosts = [
+            ...mockPosts.slice(0, 2),
+            mockAdPosts[0],
+            ...mockPosts.slice(2, 4),
+            mockAdPosts[1],
+            mockPosts[4],
+          ] as unknown as Post[];
+          setPosts(allPosts);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLike = (postId: string) => {
     console.log("Liked post:", postId);
@@ -28,8 +55,15 @@ export function HomeRoute() {
   return (
     <div className="pt-14">
       <StoriesBar />
+
+      {error && (
+        <div className="px-3 py-2 text-sm text-muted-foreground">
+          Feed loaded from mock data (Supabase error: {error})
+        </div>
+      )}
+
       <div>
-        {posts.map((post) => (
+        {(posts ?? []).map((post) => (
           <MobilePostCard
             key={post.id}
             post={post}

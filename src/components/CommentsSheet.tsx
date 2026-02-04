@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -14,7 +14,7 @@ import { Comment } from "../types";
 import { currentUser, mockComments } from "../data/mockData";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useCart } from "../context/CartContext";
-import { Badge } from "./ui/badge";
+import { fetchCommentsByPostLegacyId } from "../services/comments";
 
 interface CommentsSheetProps {
   open: boolean;
@@ -29,14 +29,43 @@ export function CommentsSheet({
   postId,
   onViewItem,
 }: CommentsSheetProps) {
-  const [comments, setComments] = useState<Comment[]>(mockComments);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { addToCart } = useCart();
+
+  // Load comments for this post when the sheet opens or postId changes
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setLoadError(null);
+        const data = await fetchCommentsByPostLegacyId(postId);
+        if (!cancelled) setComments(data);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Failed to load comments";
+        console.error(e);
+        if (!cancelled) {
+          setLoadError(msg);
+          // Fallback keeps UI alive while you debug env/schema
+          setComments(mockComments);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, postId]);
 
   const handleSubmitComment = () => {
     if (!newComment.trim()) return;
 
+    // Local-only for now (until we implement auth + DB writes)
     const comment: Comment = {
       id: `c${Date.now()}`,
       user: currentUser,
@@ -45,7 +74,7 @@ export function CommentsSheet({
       likes: 0,
     };
 
-    setComments([...comments, comment]);
+    setComments([comment, ...comments]); // prepend to feel immediate
     setNewComment("");
   };
 
@@ -79,6 +108,13 @@ export function CommentsSheet({
             View and add comments on this post
           </SheetDescription>
         </SheetHeader>
+
+        {/* Optional dev hint if Supabase fails (does not change functionality) */}
+        {loadError && (
+          <div className="px-4 py-2 text-xs text-muted-foreground border-b border-border">
+            Loaded mock comments (Supabase error: {loadError})
+          </div>
+        )}
 
         {/* Comments List */}
         <div className="overflow-y-auto h-[calc(100vh-200px)] pb-4">
