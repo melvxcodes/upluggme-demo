@@ -294,7 +294,6 @@ values
 on conflict (id) do nothing;
 
 -- Extra seed comments so all posts show activity
-
 insert into public.comments
 (id, legacy_id, post_id, user_id, content, likes, created_at, is_ad, marketplace_item_id)
 values
@@ -325,3 +324,85 @@ values
 -- Post "ad2" (UPLUGGME ad -> mp2)
 (gen_random_uuid(), 'c_ad2_1', '593c4ca5-5c90-58ab-bc74-e70098017b08', 'c1b1d655-8a8f-5f3e-a38d-06b21bbd1379',
  'Noise cancellation is a must. Adding to my wishlist.', 8, now() - interval '12 hours', false, 'fcc56fc7-47de-59a6-9e83-a5c3d82b4597');
+
+-- =========================================
+-- Seed: simulate shares + (optional) commission split attribution
+-- IMPORTANT: This section is SAFE:
+-- - Always inserts into post_shares
+-- - Only updates associated_sales if the required columns exist
+-- =========================================
+
+-- Create a couple of "shares" (user shared a post)
+insert into public.post_shares (post_id, user_id)
+values
+  -- Mike shares Alex's productivity post (legacy "5")
+  ('680cb074-be72-585f-b2ea-ef8c8c2aaa5d', 'c1b1d655-8a8f-5f3e-a38d-06b21bbd1379'),
+  -- Sarah shares Emma's morning workout post (legacy "3")
+  ('0a895156-47d6-5b4c-b54a-c4636a7ed381', 'ce81959c-c22f-53da-ab5c-61b484823793')
+on conflict do nothing;
+
+-- Optional: keep posts.shares in sync with actual share rows
+update public.posts p
+set shares = coalesce(s.cnt, 0)
+from (
+  select post_id, count(*)::int as cnt
+  from public.post_shares
+  group by post_id
+) s
+where p.id = s.post_id;
+
+-- Optional attribution updates (ONLY if columns exist)
+do $$
+begin
+  -- If you later add these columns to associated_sales, this block will start working automatically.
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'associated_sales'
+      and column_name = 'referrer_user_id'
+  ) then
+
+    -- Update a few existing associated sales to be "via share" (referrer exists)
+    update public.associated_sales
+    set referrer_user_id = 'c1b1d655-8a8f-5f3e-a38d-06b21bbd1379' -- Mike
+    where legacy_id in ('as2','as3','as7');
+
+    update public.associated_sales
+    set referrer_user_id = 'ce81959c-c22f-53da-ab5c-61b484823793' -- Sarah
+    where legacy_id in ('as1');
+
+  end if;
+
+  -- Commission split columns (only run if they exist)
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'associated_sales'
+      and column_name = 'commission_owner'
+  ) then
+    -- Example 70/30 split when referrer exists
+    update public.associated_sales
+    set
+      commission_owner = round(commission * 0.70, 2),
+      commission_referrer = round(commission * 0.30, 2)
+    where legacy_id in ('as2','as3','as7','as1');
+  end if;
+
+  -- post_owner_id safety update (only if that column exists)
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'associated_sales'
+      and column_name = 'post_owner_id'
+  ) then
+    update public.associated_sales s
+    set post_owner_id = p.user_id
+    from public.posts p
+    where p.id = s.post_id
+      and s.post_owner_id is distinct from p.user_id;
+  end if;
+
+end $$;

@@ -87,6 +87,20 @@ create table if not exists public.comments (
 create index if not exists idx_comments_post_id_created_at on public.comments(post_id, created_at desc);
 
 -- =========================
+-- POST SHARES (needed by seed)
+-- =========================
+create table if not exists public.post_shares (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (post_id, user_id)
+);
+
+create index if not exists idx_post_shares_post_id_created_at on public.post_shares(post_id, created_at desc);
+create index if not exists idx_post_shares_user_id_created_at on public.post_shares(user_id, created_at desc);
+
+-- =========================
 -- ASSOCIATED SALES
 -- =========================
 create table if not exists public.associated_sales (
@@ -111,6 +125,7 @@ alter table public.profiles enable row level security;
 alter table public.marketplace_items enable row level security;
 alter table public.posts enable row level security;
 alter table public.comments enable row level security;
+alter table public.post_shares enable row level security;
 alter table public.associated_sales enable row level security;
 
 -- PROFILES: anyone can read
@@ -194,6 +209,20 @@ create policy "comments_delete_own"
 on public.comments for delete
 to authenticated
 using (auth.uid() = user_id);
+
+-- POST SHARES: public read
+drop policy if exists "post_shares_select_public" on public.post_shares;
+create policy "post_shares_select_public"
+on public.post_shares for select
+to public
+using (true);
+
+-- POST SHARES: authenticated insert own
+drop policy if exists "post_shares_insert_own" on public.post_shares;
+create policy "post_shares_insert_own"
+on public.post_shares for insert
+to authenticated
+with check (auth.uid() = user_id);
 
 -- ASSOCIATED SALES: public read (for demo analytics)
 drop policy if exists "associated_sales_select_public" on public.associated_sales;
