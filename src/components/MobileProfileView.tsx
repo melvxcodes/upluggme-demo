@@ -22,6 +22,9 @@ import {
 import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { supabase } from "../lib/supabaseClient";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface MobileProfileViewProps {
   likedPosts?: Set<string>;
@@ -32,10 +35,14 @@ export function MobileProfileView({
   likedPosts = new Set(),
   bookmarkedPosts = new Set(),
 }: MobileProfileViewProps) {
+  const navigate = useNavigate();
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<
     "main" | "influencer"
   >("main");
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const userPosts = mockPosts.filter(
     (post) =>
       post.user.id === currentUser.id ||
@@ -47,6 +54,29 @@ export function MobileProfileView({
     bookmarkedPosts.has(post.id),
   );
   const earnings = 12547.85; // Mock earnings
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      toast.success("Logged out");
+      setSettingsOpen(false);
+      setActiveSettingsTab("main");
+      navigate("/auth", { replace: true });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Logout failed";
+      toast.error(msg);
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <div className="pb-16">
@@ -124,8 +154,6 @@ export function MobileProfileView({
         </div>
       </div>
 
-      {/* Story Highlights would go here */}
-
       {/* Posts Grid */}
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="w-full grid grid-cols-4 h-12 rounded-none border-b border-border bg-transparent p-0">
@@ -176,7 +204,6 @@ export function MobileProfileView({
                       </p>
                     </div>
                   )}
-                  {/* Overlay with stats */}
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                     <div className="flex items-center gap-1 text-white">
                       <Heart className="h-5 w-5 fill-white" />
@@ -250,7 +277,6 @@ export function MobileProfileView({
                       </p>
                     </div>
                   )}
-                  {/* Overlay with stats */}
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                     <div className="flex items-center gap-1 text-white">
                       <Heart className="h-5 w-5 fill-white" />
@@ -298,7 +324,6 @@ export function MobileProfileView({
                       </p>
                     </div>
                   )}
-                  {/* Overlay with stats */}
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                     <div className="flex items-center gap-1 text-white">
                       <Heart className="h-5 w-5 fill-white" />
@@ -353,7 +378,6 @@ export function MobileProfileView({
                 <Button
                   className="w-full bg-[#DC143C] hover:bg-[#B01030] text-white"
                   onClick={() => {
-                    // Handle withdraw logic here
                     console.log("Withdraw clicked");
                   }}
                 >
@@ -398,8 +422,15 @@ export function MobileProfileView({
 
                 <Separator />
 
-                <button className="w-full text-left px-4 py-3 hover:bg-muted rounded-lg transition-colors text-primary">
-                  <p className="font-semibold">Log Out</p>
+                {/* Log Out (last option) */}
+                <button
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="w-full text-left px-4 py-3 hover:bg-muted rounded-lg transition-colors text-primary disabled:opacity-60"
+                >
+                  <p className="font-semibold">
+                    {loggingOut ? "Logging out..." : "Log Out"}
+                  </p>
                 </button>
               </div>
             </div>

@@ -7,11 +7,24 @@ import { CartRoute } from "./CartRoute";
 import { NotificationsRoute } from "./NotificationsRoute";
 import { MessagesRoute } from "./MessagesRoute";
 import { ProfileRoute } from "./ProfileRoute";
+import { AuthPage } from "../pages/AuthPage";
+import { RequireAuth } from "./RequireAuth";
 
 export const router = createBrowserRouter([
+  // Public route
+  {
+    path: "/auth",
+    element: <AuthPage />,
+  },
+
+  // Protected app routes
   {
     path: "/",
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <HomeRoute /> },
       { path: "explore", element: <ExploreRoute /> },
